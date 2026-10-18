@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>大会の組み合わせ・日程 | DUGOUT</title>
+<link rel="stylesheet" href="../admin/admin.css">
+</head>
+<body>
+<header class="bar"><div class="brand">⚾ DUGOUT <span>大会の組み合わせ・日程</span></div></header>
+<main id="app"><p class="loading">読み込み中…</p></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<script>
+"use strict";
+// ログインなしで見られる公開ページ。大会の公開コード（URL の # の後ろ）で読み込む。連絡先は出さない
+const sb = supabase.createClient(DUGOUT_CONFIG.url, DUGOUT_CONFIG.key, { auth: { persistSession: false } });
+const app = document.getElementById("app");
+const pad = (n) => String(n).padStart(2, "0");
+const wd = ["日", "月", "火", "水", "木", "金", "土"];
+const fmt = (iso) => { if (!iso) return "日程未定"; const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}(${wd[d.getDay()]}) ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v != null && v !== false) k === "class" ? (el.className = v) : el.setAttribute(k, v);
+  for (const c of children.flat()) if (c != null && c !== false) el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return el;
+}
+async function load() {
+  const code = location.hash.slice(1).trim();
+  if (!code) { app.replaceChildren(h("p", { class: "card" }, "大会のURLを確認してください")); return; }
+  const { data: t, error } = await sb.rpc("public_tournament", { p_code: code });
+  if (error || !t) { app.replaceChildren(h("p", { class: "card" }, "大会が見つかりません")); return; }
+  document.title = `${t.name} | DUGOUT`;
+  const names = new Map(t.teams.map((e) => [e.id, e.name]));
+  const nameOf = (id) => names.get(id) ?? "未定";
+  const ms = t.matches;
+  const schedule = ms.filter((m) => m.home && m.away && !(m.status === "forfeit" && (!m.home || !m.away)))
+    .sort((a, b) => (a.starts_at ?? "9") .localeCompare(b.starts_at ?? "9"));
+  app.replaceChildren(
+    h("h1", {}, t.name),
+    h("p", { class: "sub" }, `${t.ball_type === "hard" ? "硬式" : "軟式"}・${t.prefecture} ${t.area}・参加${t.teams.length}チーム`),
+    t.note ? h("p", { class: "card" }, t.note) : null,
+    h("h2", {}, t.format === "league" ? "順位" : "トーナメント表"),
+    bracket(t, ms, nameOf),
+    h("h2", {}, "日程・結果"),
+    h("div", { class: "scroll" }, h("table", {},
+      h("thead", {}, h("tr", {}, ["日時", "試合", "会場", "対戦", "結果"].map((x) => h("th", {}, x)))),
+      h("tbody", {}, schedule.map((m) => {
+        const done = m.status === "done" || m.status === "forfeit";
+        return h("tr", {}, h("td", {}, fmt(m.starts_at)), h("td", {}, m.label), h("td", {}, m.venue || ""),
+          h("td", {}, `${nameOf(m.home)} vs ${nameOf(m.away)}`),
+          h("td", {}, done ? (m.status === "forfeit" ? `${nameOf(m.winner)}の不戦勝` : `${m.home_score} - ${m.away_score}`) : ""));
+      })))),
+    h("p", { class: "sub", style: "margin-top:20px" }, "この表は大会の事務局が DUGOUT で更新しています。"));
+}
+function bracket(t, ms, nameOf) {
+  if (!ms.length) return h("p", { class: "card muted" }, "まだ組み合わせが決まっていません");
+  if (t.format === "league") {
+    const table = new Map(t.teams.map((e) => [e.id, { name: e.name, w: 0, l: 0, d: 0, p: 0 }]));
+    for (const m of ms) {
+      if (!(m.status === "done" || m.status === "forfeit")) continue;
+      const a = table.get(m.home), b = table.get(m.away);
+      if (!a || !b) continue;
+      if (m.winner === m.home) { a.w++; b.l++; a.p += 3; } else if (m.winner === m.away) { b.w++; a.l++; b.p += 3; } else { a.d++; b.d++; a.p++; b.p++; }
+    }
+    const rows = [...table.values()].sort((x, y) => y.p - x.p);
+    return h("table", {}, h("thead", {}, h("tr", {}, ["順位", "チーム", "勝", "負", "分", "勝ち点"].map((x) => h("th", {}, x)))),
+      h("tbody", {}, rows.map((r, i) => h("tr", {}, h("td", {}, i + 1), h("td", {}, r.name), h("td", {}, r.w), h("td", {}, r.l), h("td", {}, r.d), h("td", {}, r.p)))));
+  }
+  const rounds = [...new Set(ms.map((m) => m.round))].sort((a, b) => a - b);
+  const last = rounds[rounds.length - 1];
+  return h("div", { class: "bracket" }, rounds.map((r) => h("div", { class: "round" },
+    h("h3", {}, r === last ? "決勝" : r === last - 1 ? "準決勝" : `${r}回戦`),
+    ms.filter((m) => m.round === r).map((m) => {
+      const done = m.status === "done" || m.status === "forfeit";
+      const line = (id, s) => h("div", { class: done && m.winner === id ? "win" : "" }, h("span", {}, id ? nameOf(id) : "未定"), h("span", {}, done && s != null ? s : ""));
+      return h("div", { class: "bm" }, line(m.home, m.home_score), line(m.away, m.away_score),
+        h("div", { class: "when" }, done && (!m.home || !m.away) ? "不戦勝" : m.starts_at ? `${fmt(m.starts_at)} ${m.venue || ""}` : ""));
+    }))));
+}
+window.addEventListener("hashchange", load);
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>
