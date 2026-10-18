@@ -36,7 +36,7 @@ async function load() {
   const ms = t.matches;
   const schedule = ms.filter((m) => m.home && m.away && !(m.status === "forfeit" && (!m.home || !m.away)))
     .sort((a, b) => (a.starts_at ?? "9") .localeCompare(b.starts_at ?? "9"));
-  app.replaceChildren(
+  app.replaceChildren(...[
     h("h1", {}, t.name),
     h("p", { class: "sub" }, `${t.ball_type === "hard" ? "硬式" : "軟式"}・${t.prefecture} ${t.area}・参加${t.teams.length}チーム`),
     t.note ? h("p", { class: "card" }, t.note) : null,
@@ -51,7 +51,7 @@ async function load() {
           h("td", {}, `${nameOf(m.home)} vs ${nameOf(m.away)}`),
           h("td", {}, done ? (m.status === "forfeit" ? `${nameOf(m.winner)}の不戦勝` : `${m.home_score} - ${m.away_score}`) : ""));
       })))),
-    h("p", { class: "sub", style: "margin-top:20px" }, "この表は大会の事務局が DUGOUT で更新しています。"));
+    h("p", { class: "sub", style: "margin-top:20px" }, "この表は大会の事務局が DUGOUT で更新しています。")].filter(Boolean));
 }
 function bracket(t, ms, nameOf) {
   if (!ms.length) return h("p", { class: "card muted" }, "まだ組み合わせが決まっていません");
