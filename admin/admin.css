@@ -23,6 +23,7 @@ body {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 12px 20px; background: linear-gradient(var(--grass), var(--grass-dark)); color: var(--chalk);
   position: sticky; top: 0; z-index: 10;
+  padding-top: max(12px, env(safe-area-inset-top));
 }
 .brand { font-weight: 900; letter-spacing: 1px; font-size: 18px; }
 .brand span { font-weight: 600; opacity: .85; margin-left: 6px; font-size: 14px; }

@@ -1,0 +1,16 @@
+{
+  "name": "DUGOUT 大会運営",
+  "short_name": "大会運営",
+  "description": "草野球大会の事務局向け：チーム・試合・出場確認・結果の管理",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d4521",
+  "theme_color": "#1f7a3d",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
